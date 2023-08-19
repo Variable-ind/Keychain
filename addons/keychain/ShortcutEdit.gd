@@ -414,3 +414,58 @@ func _on_DeleteConfirmation_confirmed() -> void:
 		Keychain.profile_index = 0
 	profile_option_button.select(Keychain.profile_index)
 	_on_ProfileOptionButton_item_selected(Keychain.profile_index)
+
+
+func _on_search_gui_input(event: InputEvent) -> void:
+	%Search.text = ""
+	if not event is InputEventKey:
+		return
+	if event.pressed:
+		%Search.text = OS.get_keycode_string(event.get_keycode_with_modifiers())
+		for map_action in InputMap.get_actions():
+			if map_action in Keychain.ignore_actions:
+				continue
+			if Keychain.ignore_ui_actions and map_action.begins_with("ui_"):
+				continue
+			for map_event in InputMap.action_get_events(map_action):
+				if !event.is_match(map_event):
+					continue
+
+				# Loop through other actions to see if the event exists there, to re-assign it
+				var tree_item: TreeItem = tree.get_root()
+				var prev_tree_item: TreeItem
+				var results = []
+				while tree_item != null:  # Loop through Tree's TreeItems...
+					if tree_item == tree.get_root():
+						tree_item.collapsed = false
+					var metadata = tree_item.get_metadata(0)
+					if metadata is InputEvent:
+						if map_event.is_match(metadata):
+							results.append(tree_item)
+
+					# get_next_item
+					if tree_item.get_first_child():
+						tree_item = tree_item.get_first_child()
+						tree_item.collapsed = true
+					elif tree_item.get_next():
+						tree_item.collapsed = true
+						tree_item = tree_item.get_next()
+					else:
+						while tree_item and !tree_item.get_next():
+							if tree_item != tree.get_root():
+								tree_item.collapsed = true
+							tree_item = tree_item.get_parent()
+						if tree_item:
+							tree_item.collapsed = true
+							tree_item = tree_item.get_next()
+				var expanded = []
+				for result in results:
+					var item :TreeItem = result
+					while item.get_parent():
+						if expanded.has(item):
+							break
+						item.collapsed = false
+						expanded.append(item)
+						item = item.get_parent()
+				tree.scroll_to_item(results[0])
+				break
